@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 using PaymentGateway.Api.Controllers;
+using PaymentGateway.Api.Security;
 
 namespace PaymentGateway.Api.Tests;
 
@@ -104,6 +105,35 @@ public class PaymentsControllerTests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GetPayment_WhenMerchantIdIsMissing_ReturnsUnauthorized()
+    {
+        using var bank = FakeBank.Authorizes();
+        using var client = CreateClient(bank, merchantId: null);
+
+        var response = await client.GetAsync($"/api/Payments/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetPayment_WhenPaymentBelongsToAnotherMerchant_ReturnsNotFound()
+    {
+        using var bank = FakeBank.Authorizes();
+        using var client = CreateClient(bank, merchantId: "merchant-a");
+
+        var postResponse = await client.PostAsJsonAsync("/api/Payments", ValidPaymentRequest(), SerializerOptions);
+        var payment = await ReadJsonAsync(postResponse);
+        var paymentId = AssertGuid(payment, "id");
+
+        client.DefaultRequestHeaders.Remove(MerchantAuthenticationDefaults.MerchantIdHeaderName);
+        client.DefaultRequestHeaders.Add(MerchantAuthenticationDefaults.MerchantIdHeaderName, "merchant-b");
+
+        var getResponse = await client.GetAsync($"/api/Payments/{paymentId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+    }
+
     public static TheoryData<object> RejectedPaymentRequests()
     {
         var expiredYear = DateTime.UtcNow.Year - 1;
@@ -129,16 +159,23 @@ public class PaymentsControllerTests
         };
     }
 
-    private static HttpClient CreateClient(FakeBank bank)
+    private static HttpClient CreateClient(FakeBank bank, string? merchantId = "merchant-a")
     {
         var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
 
-        return webApplicationFactory.WithWebHostBuilder(builder =>
+        var client = webApplicationFactory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IHttpClientFactory>(new StubHttpClientFactory(bank.Client));
             }))
             .CreateClient();
+
+        if (merchantId is not null)
+        {
+            client.DefaultRequestHeaders.Add(MerchantAuthenticationDefaults.MerchantIdHeaderName, merchantId);
+        }
+
+        return client;
     }
 
     private static object ValidPaymentRequest(

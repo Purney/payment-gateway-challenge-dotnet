@@ -1,6 +1,9 @@
 using System.Text.Json.Serialization;
 
+using Microsoft.AspNetCore.Authentication;
+
 using PaymentGateway.Api.Interfaces;
+using PaymentGateway.Api.Security;
 using PaymentGateway.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +16,11 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddAuthentication(MerchantAuthenticationDefaults.AuthenticationScheme)
+    .AddScheme<AuthenticationSchemeOptions, MerchantAuthenticationHandler>(
+        MerchantAuthenticationDefaults.AuthenticationScheme,
+        options => { });
+builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IPaymentsRepository, PaymentsRepository>();
 builder.Services.AddSingleton<IPaymentRequestValidator, PaymentRequestValidator>();
 builder.Services.AddSingleton<IPaymentService, PaymentService>();
@@ -33,6 +41,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

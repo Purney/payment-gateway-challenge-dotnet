@@ -12,8 +12,8 @@ public sealed class PaymentsRepository : IPaymentsRepository
         _payments.Add(payment);
     }
 
-    public Payment? Get(Guid id)
+    public Payment? Get(Guid id, string merchantId)
     {
-        return _payments.FirstOrDefault(payment => payment.Id == id);
+        return _payments.FirstOrDefault(payment => payment.Id == id && payment.MerchantId == merchantId);
     }
 }

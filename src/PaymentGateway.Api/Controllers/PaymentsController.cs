@@ -1,15 +1,18 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using PaymentGateway.Api.Interfaces;
 using PaymentGateway.Api.Mappers;
 using PaymentGateway.Api.Models.Requests;
 using PaymentGateway.Api.Models.Responses;
+using PaymentGateway.Api.Security;
 using PaymentGateway.Api.Services;
 
 namespace PaymentGateway.Api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class PaymentsController : Controller
 {
     private readonly ILogger<PaymentsController> _logger;
@@ -29,7 +32,8 @@ public class PaymentsController : Controller
     [HttpGet("{id:guid}")]
     public ActionResult<GetPaymentResponse> GetPayment(Guid id)
     {
-        var payment = _paymentsRepository.Get(id);
+        var merchantId = GetMerchantId();
+        var payment = _paymentsRepository.Get(id, merchantId);
 
         if (payment is null)
         {
@@ -45,8 +49,13 @@ public class PaymentsController : Controller
     [HttpPost]
     public async Task<ActionResult<PostPaymentResponse>> PostPayment(PostPaymentRequest request, CancellationToken cancellationToken)
     {
-        var result = await _paymentService.ProcessAsync(request, cancellationToken);
+        var result = await _paymentService.ProcessAsync(request, GetMerchantId(), cancellationToken);
 
         return StatusCode((int)result.StatusCode, result.Payment);
+    }
+
+    private string GetMerchantId()
+    {
+        return User.Claims.Single(claim => claim.Type == MerchantAuthenticationDefaults.MerchantIdClaimType).Value;
     }
 }

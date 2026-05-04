@@ -6,5 +6,5 @@ public interface IPaymentsRepository
 {
     void Add(Payment payment);
 
-    Payment? Get(Guid id);
+    Payment? Get(Guid id, string merchantId);
 }

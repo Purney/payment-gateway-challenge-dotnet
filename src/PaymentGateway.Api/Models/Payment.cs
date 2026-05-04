@@ -3,6 +3,7 @@ namespace PaymentGateway.Api.Models;
 public sealed class Payment
 {
     public Guid Id { get; set; }
+    public string MerchantId { get; set; } = string.Empty;
     public PaymentStatus Status { get; set; }
     public int CardNumberLastFour { get; set; }
     public int ExpiryMonth { get; set; }

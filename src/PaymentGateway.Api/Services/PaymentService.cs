@@ -24,7 +24,10 @@ public sealed class PaymentService : IPaymentService
         _paymentsRepository = paymentsRepository;
     }
 
-    public async Task<PaymentServiceResult> ProcessAsync(PostPaymentRequest request, CancellationToken cancellationToken)
+    public async Task<PaymentServiceResult> ProcessAsync(
+        PostPaymentRequest request,
+        string merchantId,
+        CancellationToken cancellationToken)
     {
         _logger.LogInformation("Payment request received for amount {Amount} {Currency}", request.Amount, request.Currency);
 
@@ -44,6 +47,7 @@ public sealed class PaymentService : IPaymentService
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
+            MerchantId = merchantId,
             Status = bankResult.Authorized ? PaymentStatus.Authorized : PaymentStatus.Declined,
             CardNumberLastFour = int.Parse(request.CardNumber![^4..]),
             ExpiryMonth = request.ExpiryMonth,
