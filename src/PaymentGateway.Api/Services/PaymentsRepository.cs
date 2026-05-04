@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 using PaymentGateway.Api.Interfaces;
 using PaymentGateway.Api.Models;
 
@@ -7,15 +5,15 @@ namespace PaymentGateway.Api.Services;
 
 public sealed class PaymentsRepository : IPaymentsRepository
 {
-    private readonly ConcurrentDictionary<Guid, Payment> _payments = new();
+    private readonly List<Payment> _payments = new();
 
     public void Add(Payment payment)
     {
-        _payments[payment.Id] = payment;
+        _payments.Add(payment);
     }
 
     public Payment? Get(Guid id)
     {
-        return _payments.GetValueOrDefault(id);
+        return _payments.FirstOrDefault(payment => payment.Id == id);
     }
 }
