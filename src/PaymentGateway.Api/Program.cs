@@ -18,6 +18,9 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var acquiringBankOptions = builder.Configuration.GetSection("AcquiringBank").Get<AcquiringBankOptions>()
+    ?? new AcquiringBankOptions();
+
 builder.Services.Configure<RequestProtectionOptions>(builder.Configuration.GetSection("RequestProtection"));
 builder.Services.AddAuthentication(MerchantAuthenticationDefaults.AuthenticationScheme)
     .AddScheme<AuthenticationSchemeOptions, MerchantAuthenticationHandler>(
@@ -53,7 +56,8 @@ builder.Services.AddSingleton<IPaymentRequestValidator, PaymentRequestValidator>
 builder.Services.AddSingleton<IPaymentService, PaymentService>();
 builder.Services.AddHttpClient("AcquiringBank", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["AcquiringBank:BaseUrl"] ?? "http://localhost:8080");
+    client.BaseAddress = new Uri(acquiringBankOptions.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(acquiringBankOptions.TimeoutSeconds);
 });
 builder.Services.AddSingleton<IAcquiringBankClient, AcquiringBankClient>();
 
