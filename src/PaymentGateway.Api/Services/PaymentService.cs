@@ -14,9 +14,9 @@ public sealed class PaymentService
     };
 
     private readonly IAcquiringBankClient _acquiringBankClient;
-    private readonly PaymentsRepository _paymentsRepository;
+    private readonly IPaymentsRepository _paymentsRepository;
 
-    public PaymentService(IAcquiringBankClient acquiringBankClient, PaymentsRepository paymentsRepository)
+    public PaymentService(IAcquiringBankClient acquiringBankClient, IPaymentsRepository paymentsRepository)
     {
         _acquiringBankClient = acquiringBankClient;
         _paymentsRepository = paymentsRepository;

@@ -12,7 +12,7 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddSingleton<PaymentsRepository>();
+builder.Services.AddSingleton<IPaymentsRepository, PaymentsRepository>();
 builder.Services.AddSingleton<PaymentService>();
 builder.Services.AddHttpClient("AcquiringBank", client =>
 {
