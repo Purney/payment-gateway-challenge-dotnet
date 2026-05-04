@@ -14,7 +14,11 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<PaymentsRepository>();
 builder.Services.AddSingleton<PaymentService>();
-builder.Services.AddSingleton<IAcquiringBankClient, UnavailableAcquiringBankClient>();
+builder.Services.AddHttpClient("AcquiringBank", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["AcquiringBank:BaseUrl"] ?? "http://localhost:8080");
+});
+builder.Services.AddSingleton<IAcquiringBankClient, AcquiringBankClient>();
 
 var app = builder.Build();
 
