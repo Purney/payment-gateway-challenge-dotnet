@@ -10,11 +10,16 @@ namespace PaymentGateway.Api.Controllers;
 [ApiController]
 public class PaymentsController : Controller
 {
+    private readonly ILogger<PaymentsController> _logger;
     private readonly PaymentService _paymentService;
     private readonly IPaymentsRepository _paymentsRepository;
 
-    public PaymentsController(PaymentService paymentService, IPaymentsRepository paymentsRepository)
+    public PaymentsController(
+        ILogger<PaymentsController> logger,
+        PaymentService paymentService,
+        IPaymentsRepository paymentsRepository)
     {
+        _logger = logger;
         _paymentService = paymentService;
         _paymentsRepository = paymentsRepository;
     }
@@ -26,8 +31,11 @@ public class PaymentsController : Controller
 
         if (payment is null)
         {
+            _logger.LogInformation("Payment {PaymentId} was not found", id);
             return NotFound();
         }
+
+        _logger.LogInformation("Payment {PaymentId} was retrieved with status {PaymentStatus}", id, payment.Status);
 
         return Ok(new GetPaymentResponse
         {
