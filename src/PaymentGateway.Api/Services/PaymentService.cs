@@ -40,10 +40,11 @@ public sealed class PaymentService : IPaymentService
     {
         _logger.LogInformation("Payment request received for amount {Amount} {Currency}", request.Amount, request.Currency);
 
-        var requestHash = CreateRequestHash(request);
-        if (!string.IsNullOrWhiteSpace(idempotencyKey))
+        var hasIdempotencyKey = !string.IsNullOrWhiteSpace(idempotencyKey);
+        var requestHash = hasIdempotencyKey ? CreateRequestHash(request) : null;
+        if (hasIdempotencyKey)
         {
-            var existingRecord = _idempotencyStore.Get(merchantId, idempotencyKey);
+            var existingRecord = _idempotencyStore.Get(merchantId, idempotencyKey!);
             if (existingRecord is not null)
             {
                 if (existingRecord.RequestHash != requestHash)
@@ -115,10 +116,12 @@ public sealed class PaymentService : IPaymentService
     private void StoreIdempotencyRecord(
         string merchantId,
         string? idempotencyKey,
-        string requestHash,
+        string? requestHash,
         PaymentServiceResult result)
     {
-        if (string.IsNullOrWhiteSpace(idempotencyKey) || result.StatusCode == HttpStatusCode.ServiceUnavailable)
+        if (string.IsNullOrWhiteSpace(idempotencyKey)
+            || requestHash is null
+            || result.StatusCode == HttpStatusCode.ServiceUnavailable)
         {
             return;
         }

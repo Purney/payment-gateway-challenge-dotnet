@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 using PaymentGateway.Api.Interfaces;
 using PaymentGateway.Api.Models;
 
@@ -5,15 +7,15 @@ namespace PaymentGateway.Api.Services;
 
 public sealed class IdempotencyStore : IIdempotencyStore
 {
-    private readonly List<IdempotencyRecord> _records = new();
+    private readonly ConcurrentDictionary<(string MerchantId, string Key), IdempotencyRecord> _records = new();
 
     public IdempotencyRecord? Get(string merchantId, string key)
     {
-        return _records.FirstOrDefault(record => record.MerchantId == merchantId && record.Key == key);
+        return _records.GetValueOrDefault((merchantId, key));
     }
 
     public void Add(IdempotencyRecord record)
     {
-        _records.Add(record);
+        _records[(record.MerchantId, record.Key)] = record;
     }
 }
