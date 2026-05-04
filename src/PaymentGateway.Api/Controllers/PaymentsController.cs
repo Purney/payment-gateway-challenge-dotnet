@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 
+using PaymentGateway.Api.Interfaces;
+using PaymentGateway.Api.Mappers;
 using PaymentGateway.Api.Models.Requests;
 using PaymentGateway.Api.Models.Responses;
 using PaymentGateway.Api.Services;
@@ -11,12 +13,12 @@ namespace PaymentGateway.Api.Controllers;
 public class PaymentsController : Controller
 {
     private readonly ILogger<PaymentsController> _logger;
-    private readonly PaymentService _paymentService;
+    private readonly IPaymentService _paymentService;
     private readonly IPaymentsRepository _paymentsRepository;
 
     public PaymentsController(
         ILogger<PaymentsController> logger,
-        PaymentService paymentService,
+        IPaymentService paymentService,
         IPaymentsRepository paymentsRepository)
     {
         _logger = logger;
@@ -37,16 +39,7 @@ public class PaymentsController : Controller
 
         _logger.LogInformation("Payment {PaymentId} was retrieved with status {PaymentStatus}", id, payment.Status);
 
-        return Ok(new GetPaymentResponse
-        {
-            Id = payment.Id,
-            Status = payment.Status,
-            CardNumberLastFour = payment.CardNumberLastFour,
-            ExpiryMonth = payment.ExpiryMonth,
-            ExpiryYear = payment.ExpiryYear,
-            Currency = payment.Currency,
-            Amount = payment.Amount
-        });
+        return Ok(PaymentResponseMapper.ToGetPaymentResponse(payment));
     }
 
     [HttpPost]

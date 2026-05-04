@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 
+using PaymentGateway.Api.Interfaces;
 using PaymentGateway.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,7 +14,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<IPaymentsRepository, PaymentsRepository>();
-builder.Services.AddSingleton<PaymentService>();
+builder.Services.AddSingleton<IPaymentRequestValidator, PaymentRequestValidator>();
+builder.Services.AddSingleton<IPaymentService, PaymentService>();
 builder.Services.AddHttpClient("AcquiringBank", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["AcquiringBank:BaseUrl"] ?? "http://localhost:8080");
