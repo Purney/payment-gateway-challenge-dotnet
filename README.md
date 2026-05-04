@@ -47,10 +47,10 @@ The test suite drives the implementation through the public HTTP API and focused
 
 ## API
 
-All API requests require a merchant identity header:
+All API requests require a merchant API key:
 
 ```http
-X-Merchant-Id: merchant-a
+X-Api-Key: dev-api-key-a
 ```
 
 ### Create Payment
@@ -58,7 +58,7 @@ X-Merchant-Id: merchant-a
 ```http
 POST /api/Payments
 Content-Type: application/json
-X-Merchant-Id: merchant-a
+X-Api-Key: dev-api-key-a
 Idempotency-Key: optional-key
 ```
 
@@ -108,7 +108,7 @@ The full card number and CVV are never returned.
 
 ```http
 GET /api/Payments/{id}
-X-Merchant-Id: merchant-a
+X-Api-Key: dev-api-key-a
 ```
 
 Returns `200 OK` with the stored payment response when the payment exists for that merchant. Returns `404 Not Found` when the id is unknown or belongs to a different merchant.
@@ -128,7 +128,7 @@ Rejected requests return `400 Bad Request` with status `Rejected`.
 
 ## Protection
 
-- Missing `X-Merchant-Id` returns `401 Unauthorized`.
+- Missing or invalid `X-Api-Key` returns `401 Unauthorized`.
 - Requests are rate limited per merchant, defaulting to 60 requests per minute.
 - `POST /api/Payments` request bodies larger than 4096 bytes return `413 Payload Too Large`.
 - Acquiring bank calls have a configurable timeout.
@@ -136,6 +136,8 @@ Rejected requests return `400 Bad Request` with status `Rejected`.
 ## Design
 
 The controller is intentionally thin. Payment processing lives in `PaymentService`, which handles validation, bank authorization mapping, masking, idempotency handling, and persistence. The acquiring bank integration is isolated behind `IAcquiringBankClient`.
+
+Merchant authentication is API-key based for the challenge. The caller sends `X-Api-Key`, and the API maps the configured key to an internal merchant id. Payment ownership checks use that resolved merchant id rather than trusting caller-supplied merchant ids.
 
 Payment records are currently stored in an in-memory `List<Payment>` through `IPaymentsRepository`. This is intentionally simple for the challenge and represents where durable database-backed storage would sit in a production service.
 
@@ -165,7 +167,7 @@ Sensitive values such as full card number and CVV are not logged.
 
 - Amount is represented as an integer minor unit.
 - Supported currencies are limited to `GBP`, `USD`, and `EUR`.
-- Header-based merchant authentication is acceptable for the challenge.
+- API-key merchant authentication is acceptable for the challenge.
 - In-memory storage is acceptable for the challenge.
 - Declined payments are stored and retrievable.
 - Gateway validation failures can be replayed through idempotency but are not stored as payments.

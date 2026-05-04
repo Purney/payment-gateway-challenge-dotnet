@@ -22,6 +22,7 @@ var acquiringBankOptions = builder.Configuration.GetSection("AcquiringBank").Get
     ?? new AcquiringBankOptions();
 
 builder.Services.Configure<RequestProtectionOptions>(builder.Configuration.GetSection("RequestProtection"));
+builder.Services.Configure<MerchantAuthenticationOptions>(builder.Configuration.GetSection("MerchantAuthentication"));
 builder.Services.AddAuthentication(MerchantAuthenticationDefaults.AuthenticationScheme)
     .AddScheme<AuthenticationSchemeOptions, MerchantAuthenticationHandler>(
         MerchantAuthenticationDefaults.AuthenticationScheme,
@@ -35,10 +36,10 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        var merchantId = context.Request.Headers[MerchantAuthenticationDefaults.MerchantIdHeaderName].FirstOrDefault();
-        var partitionKey = string.IsNullOrWhiteSpace(merchantId)
+        var apiKey = context.Request.Headers[MerchantAuthenticationDefaults.ApiKeyHeaderName].FirstOrDefault();
+        var partitionKey = string.IsNullOrWhiteSpace(apiKey)
             ? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous"
-            : merchantId;
+            : apiKey;
 
         return RateLimitPartition.GetFixedWindowLimiter(
             partitionKey,

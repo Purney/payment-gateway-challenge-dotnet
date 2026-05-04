@@ -108,12 +108,12 @@ public class PaymentsControllerTests
     public async Task PostPayment_WhenDifferentMerchantsUseSameIdempotencyKey_DoesNotReplayOtherMerchantPayment()
     {
         using var bank = FakeBank.Authorizes();
-        using var client = CreateClient(bank, merchantId: "merchant-a");
+        using var client = CreateClient(bank, apiKey: "dev-api-key-a");
         var request = ValidPaymentRequest(cardNumber: "2222405343248871");
 
         var firstResponse = await PostPaymentAsync(client, request, idempotencyKey: "shared-key");
-        client.DefaultRequestHeaders.Remove(MerchantAuthenticationDefaults.MerchantIdHeaderName);
-        client.DefaultRequestHeaders.Add(MerchantAuthenticationDefaults.MerchantIdHeaderName, "merchant-b");
+        client.DefaultRequestHeaders.Remove(MerchantAuthenticationDefaults.ApiKeyHeaderName);
+        client.DefaultRequestHeaders.Add(MerchantAuthenticationDefaults.ApiKeyHeaderName, "dev-api-key-b");
         var secondResponse = await PostPaymentAsync(client, request, idempotencyKey: "shared-key");
 
         var firstPayment = await ReadJsonAsync(firstResponse);
@@ -166,7 +166,18 @@ public class PaymentsControllerTests
     public async Task GetPayment_WhenMerchantIdIsMissing_ReturnsUnauthorized()
     {
         using var bank = FakeBank.Authorizes();
-        using var client = CreateClient(bank, merchantId: null);
+        using var client = CreateClient(bank, apiKey: null);
+
+        var response = await client.GetAsync($"/api/Payments/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetPayment_WhenApiKeyIsInvalid_ReturnsUnauthorized()
+    {
+        using var bank = FakeBank.Authorizes();
+        using var client = CreateClient(bank, apiKey: "not-a-real-key");
 
         var response = await client.GetAsync($"/api/Payments/{Guid.NewGuid()}");
 
@@ -177,14 +188,14 @@ public class PaymentsControllerTests
     public async Task GetPayment_WhenPaymentBelongsToAnotherMerchant_ReturnsNotFound()
     {
         using var bank = FakeBank.Authorizes();
-        using var client = CreateClient(bank, merchantId: "merchant-a");
+        using var client = CreateClient(bank, apiKey: "dev-api-key-a");
 
         var postResponse = await client.PostAsJsonAsync("/api/Payments", ValidPaymentRequest(), SerializerOptions);
         var payment = await ReadJsonAsync(postResponse);
         var paymentId = AssertGuid(payment, "id");
 
-        client.DefaultRequestHeaders.Remove(MerchantAuthenticationDefaults.MerchantIdHeaderName);
-        client.DefaultRequestHeaders.Add(MerchantAuthenticationDefaults.MerchantIdHeaderName, "merchant-b");
+        client.DefaultRequestHeaders.Remove(MerchantAuthenticationDefaults.ApiKeyHeaderName);
+        client.DefaultRequestHeaders.Add(MerchantAuthenticationDefaults.ApiKeyHeaderName, "dev-api-key-b");
 
         var getResponse = await client.GetAsync($"/api/Payments/{paymentId}");
 
@@ -246,7 +257,7 @@ public class PaymentsControllerTests
         };
     }
 
-    private static HttpClient CreateClient(FakeBank bank, string? merchantId = "merchant-a")
+    private static HttpClient CreateClient(FakeBank bank, string? apiKey = "dev-api-key-a")
     {
         var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
 
@@ -257,9 +268,9 @@ public class PaymentsControllerTests
             }))
             .CreateClient();
 
-        if (merchantId is not null)
+        if (apiKey is not null)
         {
-            client.DefaultRequestHeaders.Add(MerchantAuthenticationDefaults.MerchantIdHeaderName, merchantId);
+            client.DefaultRequestHeaders.Add(MerchantAuthenticationDefaults.ApiKeyHeaderName, apiKey);
         }
 
         return client;
