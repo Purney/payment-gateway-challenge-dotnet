@@ -10,10 +10,12 @@ namespace PaymentGateway.Api.Controllers;
 [ApiController]
 public class PaymentsController : Controller
 {
+    private readonly PaymentService _paymentService;
     private readonly PaymentsRepository _paymentsRepository;
 
-    public PaymentsController(PaymentsRepository paymentsRepository)
+    public PaymentsController(PaymentService paymentService, PaymentsRepository paymentsRepository)
     {
+        _paymentService = paymentService;
         _paymentsRepository = paymentsRepository;
     }
 
@@ -40,8 +42,10 @@ public class PaymentsController : Controller
     }
 
     [HttpPost]
-    public ActionResult<PostPaymentResponse> PostPayment(PostPaymentRequest request)
+    public async Task<ActionResult<PostPaymentResponse>> PostPayment(PostPaymentRequest request, CancellationToken cancellationToken)
     {
-        return StatusCode(StatusCodes.Status501NotImplemented);
+        var result = await _paymentService.ProcessAsync(request, cancellationToken);
+
+        return StatusCode((int)result.StatusCode, result.Payment);
     }
 }
