@@ -134,6 +134,36 @@ public class PaymentsControllerTests
         Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task PostPayment_WhenRequestBodyExceedsLimit_ReturnsPayloadTooLarge()
+    {
+        using var bank = FakeBank.Authorizes();
+        using var client = CreateClient(bank);
+        using var content = new StringContent($"{{\"card_number\":\"{new string('1', 5000)}\"}}");
+
+        var response = await client.PostAsync("/api/Payments", content);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.Equal(0, bank.RequestCount);
+    }
+
+    [Fact]
+    public async Task Request_WhenMerchantExceedsRateLimit_ReturnsTooManyRequests()
+    {
+        using var bank = FakeBank.Authorizes();
+        using var client = CreateClient(bank);
+
+        for (var i = 0; i < 60; i++)
+        {
+            var allowedResponse = await client.GetAsync($"/api/Payments/{Guid.NewGuid()}");
+            Assert.Equal(HttpStatusCode.NotFound, allowedResponse.StatusCode);
+        }
+
+        var rateLimitedResponse = await client.GetAsync($"/api/Payments/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, rateLimitedResponse.StatusCode);
+    }
+
     public static TheoryData<object> RejectedPaymentRequests()
     {
         var expiredYear = DateTime.UtcNow.Year - 1;

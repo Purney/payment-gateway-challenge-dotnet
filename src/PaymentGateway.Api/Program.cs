@@ -1,8 +1,10 @@
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.Authentication;
 
 using PaymentGateway.Api.Interfaces;
+using PaymentGateway.Api.Options;
 using PaymentGateway.Api.Security;
 using PaymentGateway.Api.Services;
 
@@ -16,11 +18,36 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.Configure<RequestProtectionOptions>(builder.Configuration.GetSection("RequestProtection"));
 builder.Services.AddAuthentication(MerchantAuthenticationDefaults.AuthenticationScheme)
     .AddScheme<AuthenticationSchemeOptions, MerchantAuthenticationHandler>(
         MerchantAuthenticationDefaults.AuthenticationScheme,
         options => { });
 builder.Services.AddAuthorization();
+var requestProtectionOptions = builder.Configuration
+    .GetSection("RequestProtection")
+    .Get<RequestProtectionOptions>() ?? new RequestProtectionOptions();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var merchantId = context.Request.Headers[MerchantAuthenticationDefaults.MerchantIdHeaderName].FirstOrDefault();
+        var partitionKey = string.IsNullOrWhiteSpace(merchantId)
+            ? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous"
+            : merchantId;
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = requestProtectionOptions.RateLimitPermitLimit,
+                Window = requestProtectionOptions.RateLimitWindow,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+});
 builder.Services.AddSingleton<IPaymentsRepository, PaymentsRepository>();
 builder.Services.AddSingleton<IPaymentRequestValidator, PaymentRequestValidator>();
 builder.Services.AddSingleton<IPaymentService, PaymentService>();
@@ -41,7 +68,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseMiddleware<PaymentRequestSizeLimitMiddleware>();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
