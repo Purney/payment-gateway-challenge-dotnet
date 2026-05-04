@@ -65,6 +65,63 @@ public class PaymentsControllerTests
         Assert.Equal("Declined", storedPayment["status"]?.GetValue<string>());
     }
 
+    [Fact]
+    public async Task PostPayment_WhenIdempotencyKeyIsReused_ReturnsOriginalPaymentWithoutCallingBankAgain()
+    {
+        using var bank = FakeBank.Authorizes();
+        using var client = CreateClient(bank);
+        var request = ValidPaymentRequest(cardNumber: "2222405343248871");
+
+        var firstResponse = await PostPaymentAsync(client, request, idempotencyKey: "payment-key-1");
+        var secondResponse = await PostPaymentAsync(client, request, idempotencyKey: "payment-key-1");
+
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+
+        var firstPayment = await ReadJsonAsync(firstResponse);
+        var secondPayment = await ReadJsonAsync(secondResponse);
+        Assert.Equal(AssertGuid(firstPayment, "id"), AssertGuid(secondPayment, "id"));
+        Assert.Equal(1, bank.RequestCount);
+    }
+
+    [Fact]
+    public async Task PostPayment_WhenIdempotencyKeyIsReusedWithDifferentRequest_ReturnsConflictWithoutCallingBankAgain()
+    {
+        using var bank = FakeBank.Authorizes();
+        using var client = CreateClient(bank);
+
+        var firstResponse = await PostPaymentAsync(
+            client,
+            ValidPaymentRequest(cardNumber: "2222405343248871"),
+            idempotencyKey: "payment-key-1");
+        var secondResponse = await PostPaymentAsync(
+            client,
+            ValidPaymentRequest(cardNumber: "2222405343248872"),
+            idempotencyKey: "payment-key-1");
+
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, secondResponse.StatusCode);
+        Assert.Equal(1, bank.RequestCount);
+    }
+
+    [Fact]
+    public async Task PostPayment_WhenDifferentMerchantsUseSameIdempotencyKey_DoesNotReplayOtherMerchantPayment()
+    {
+        using var bank = FakeBank.Authorizes();
+        using var client = CreateClient(bank, merchantId: "merchant-a");
+        var request = ValidPaymentRequest(cardNumber: "2222405343248871");
+
+        var firstResponse = await PostPaymentAsync(client, request, idempotencyKey: "shared-key");
+        client.DefaultRequestHeaders.Remove(MerchantAuthenticationDefaults.MerchantIdHeaderName);
+        client.DefaultRequestHeaders.Add(MerchantAuthenticationDefaults.MerchantIdHeaderName, "merchant-b");
+        var secondResponse = await PostPaymentAsync(client, request, idempotencyKey: "shared-key");
+
+        var firstPayment = await ReadJsonAsync(firstResponse);
+        var secondPayment = await ReadJsonAsync(secondResponse);
+        Assert.NotEqual(AssertGuid(firstPayment, "id"), AssertGuid(secondPayment, "id"));
+        Assert.Equal(2, bank.RequestCount);
+    }
+
     [Theory]
     [MemberData(nameof(RejectedPaymentRequests))]
     public async Task PostPayment_WhenGatewayValidationFails_ReturnsRejectedWithoutCallingBank(object request)
@@ -225,6 +282,20 @@ public class PaymentsControllerTests
             amount,
             cvv
         };
+    }
+
+    private static Task<HttpResponseMessage> PostPaymentAsync(
+        HttpClient client,
+        object request,
+        string idempotencyKey)
+    {
+        var message = new HttpRequestMessage(HttpMethod.Post, "/api/Payments")
+        {
+            Content = JsonContent.Create(request, options: SerializerOptions)
+        };
+        message.Headers.Add(MerchantAuthenticationDefaults.IdempotencyKeyHeaderName, idempotencyKey);
+
+        return client.SendAsync(message);
     }
 
     private static async Task<JsonNode> ReadJsonAsync(HttpResponseMessage response)

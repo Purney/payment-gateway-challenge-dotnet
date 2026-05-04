@@ -5,5 +5,9 @@ namespace PaymentGateway.Api.Interfaces;
 
 public interface IPaymentService
 {
-    Task<PaymentServiceResult> ProcessAsync(PostPaymentRequest request, string merchantId, CancellationToken cancellationToken);
+    Task<PaymentServiceResult> ProcessAsync(
+        PostPaymentRequest request,
+        string merchantId,
+        string? idempotencyKey,
+        CancellationToken cancellationToken);
 }

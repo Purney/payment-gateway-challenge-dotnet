@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using PaymentGateway.Api.Interfaces;
@@ -47,7 +48,7 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
             return AcquiringBankResult.Unavailable();
         }
 
-        if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
+        if ((int)response.StatusCode >= 500)
         {
             _logger.LogWarning("Acquiring bank returned {StatusCode}", response.StatusCode);
             return AcquiringBankResult.Unavailable();
@@ -59,7 +60,17 @@ public sealed class AcquiringBankClient : IAcquiringBankClient
             return AcquiringBankResult.DeclinedPayment();
         }
 
-        var bankResponse = await response.Content.ReadFromJsonAsync<AcquiringBankResponse>(cancellationToken);
+        AcquiringBankResponse? bankResponse;
+        try
+        {
+            bankResponse = await response.Content.ReadFromJsonAsync<AcquiringBankResponse>(cancellationToken);
+        }
+        catch (JsonException exception)
+        {
+            _logger.LogWarning(exception, "Acquiring bank returned a malformed response");
+            return AcquiringBankResult.Unavailable();
+        }
+
         _logger.LogInformation("Acquiring bank authorization completed with authorized={Authorized}", bankResponse?.Authorized);
 
         return bankResponse?.Authorized == true

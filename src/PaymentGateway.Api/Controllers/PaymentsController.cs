@@ -49,7 +49,11 @@ public class PaymentsController : Controller
     [HttpPost]
     public async Task<ActionResult<PostPaymentResponse>> PostPayment(PostPaymentRequest request, CancellationToken cancellationToken)
     {
-        var result = await _paymentService.ProcessAsync(request, GetMerchantId(), cancellationToken);
+        var result = await _paymentService.ProcessAsync(
+            request,
+            GetMerchantId(),
+            Request.Headers[MerchantAuthenticationDefaults.IdempotencyKeyHeaderName].FirstOrDefault(),
+            cancellationToken);
 
         return StatusCode((int)result.StatusCode, result.Payment);
     }

@@ -52,6 +52,7 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 builder.Services.AddSingleton<IPaymentsRepository, PaymentsRepository>();
+builder.Services.AddSingleton<IIdempotencyStore, IdempotencyStore>();
 builder.Services.AddSingleton<IPaymentRequestValidator, PaymentRequestValidator>();
 builder.Services.AddSingleton<IPaymentService, PaymentService>();
 builder.Services.AddHttpClient("AcquiringBank", client =>
