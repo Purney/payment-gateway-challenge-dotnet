@@ -1,6 +1,19 @@
 version: "3.8"
 
 services:
+  payment_gateway:
+    container_name: payment_gateway
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5067:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      AcquiringBank__BaseUrl: http://bank_simulator:8080
+    depends_on:
+      - bank_simulator
+
   bank_simulator:
     container_name: bank_simulator
     image: bbyars/mountebank:2.8.1
